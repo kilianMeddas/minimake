@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Error: child did not exit normally\n");
         return 1;
     }
-    printf("process exit status: %d", WEXITSTATUS(wstatus));
+    printf("process exit status: %d\n", WEXITSTATUS(wstatus));
 
     return 0;
 }
