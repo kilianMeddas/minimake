@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 {
     if (argc != 2)
     {
-        fprintf(stderr, "The syntaxe is: ./micromake Makefile\n");
+        fprintf(stderr, "The syntax is: ./micromake Makefile\n");
         return 2;
     }
 
@@ -35,120 +35,231 @@ int main(int argc, char *argv[])
     size_t size = 0;
     ssize_t len;
 
-    char buffer[256] = "";
+    char *buffer = NULL;
+    size_t buffer_size = 0;
+    size_t buffer_len = 0;
 
     while ((len = getline(&line, &size, file)) != -1)
     {
         if (line[0] == '\t')
         {
             fprintf(stderr, "A tabulation was detected\n");
+            free(buffer);
             free(line);
             fclose(file);
             return 2;
         }
+
         if (is_empty_line(line))
             continue;
 
-        char *word = malloc(sizeof(char) * size);
+        char *word = malloc(size);
         if (!word)
         {
-            fprintf(stderr,
-                    "An error occured during the allocation of the memory for "
-                    "a word");
+            fprintf(stderr, "Memory allocation failed\n");
+            free(buffer);
             free(line);
             fclose(file);
             return 2;
         }
+
         word[0] = '\0';
 
         bool isDoubleDot = false;
         bool isDependency = false;
+        bool target_finished = false;
+        size_t word_len = 0;
 
         for (ssize_t c = 0; c < len; c++)
         {
-            if (line[c] == '=')
+            if (line[c] == '=' || line[c] == '#')
             {
-                fprintf(stderr,
-                        "You cannot defined variables for this exercice\n");
+                fprintf(stderr, "Invalid character\n");
                 free(word);
-                free(line);
-                fclose(file);
-                return 2;
-            }
-            else if (line[c] == '#')
-            {
-                fprintf(stderr, "Character unknown for a Makefile");
-                free(word);
+                free(buffer);
                 free(line);
                 fclose(file);
                 return 2;
             }
 
-            if (line[c] != ':' && line[c] != '\n' && !isblank(line[c]))
+            if (line[c] != ':' && line[c] != '\n'
+                && !isblank(line[c]))
             {
-                size_t len_word = strlen(word);
-                snprintf(word + len_word, size - len_word, "%c", line[c]);
-            }
-            else if (line[c] == ':' && !isDoubleDot)
-            {
-                if (strlen(word) == 0)
+                if (!isDoubleDot && target_finished)
                 {
-                    fprintf(stderr, "Missing rule name\n");
+                    fprintf(stderr, "Invalid rule name\n");
                     free(word);
+                    free(buffer);
                     free(line);
                     fclose(file);
                     return 2;
                 }
-                snprintf(buffer + strlen(buffer),
-                         sizeof(buffer) - strlen(buffer), "(%s):", word);
+
+                word[word_len] = line[c];
+                word_len++;
+                word[word_len] = '\0';
+            }
+            else if (line[c] == ':' && !isDoubleDot)
+            {
+                size_t needed = buffer_len + word_len + 4;
+
+                if (needed > buffer_size)
+                {
+                    char *tmp = realloc(buffer, needed);
+                    if (!tmp)
+                    {
+                        fprintf(stderr, "Memory allocation failed\n");
+                        free(word);
+                        free(buffer);
+                        free(line);
+                        fclose(file);
+                        return 2;
+                    }
+                    buffer = tmp;
+                    buffer_size = needed;
+                }
+
+                buffer[buffer_len++] = '(';
+                memcpy(buffer + buffer_len, word, word_len);
+                buffer_len += word_len;
+                buffer[buffer_len++] = ')';
+                buffer[buffer_len++] = ':';
+                buffer[buffer_len] = '\0';
+
                 isDoubleDot = true;
+                word_len = 0;
                 word[0] = '\0';
             }
             else if (line[c] == ':' && isDoubleDot)
             {
-                fprintf(stderr, "Double ':' detected)");
+                fprintf(stderr, "Double ':' detected\n");
+                free(word);
+                free(buffer);
                 free(line);
                 fclose(file);
-                free(word);
                 return 2;
             }
-            else if ((isblank(line[c]) || line[c] == '\n') && strlen(word) != 0)
+            else if ((isblank(line[c]) || line[c] == '\n')
+                     && word_len != 0)
             {
                 if (isDoubleDot)
                 {
-                    snprintf(buffer + strlen(buffer),
-                             sizeof(buffer) - strlen(buffer), " [%s]", word);
+                    size_t needed = buffer_len + word_len + 4;
+
+                    if (needed > buffer_size)
+                    {
+                        char *tmp = realloc(buffer, needed);
+                        if (!tmp)
+                        {
+                            fprintf(stderr,
+                                    "Memory allocation failed\n");
+                            free(word);
+                            free(buffer);
+                            free(line);
+                            fclose(file);
+                            return 2;
+                        }
+                        buffer = tmp;
+                        buffer_size = needed;
+                    }
+
+                    buffer[buffer_len++] = ' ';
+                    buffer[buffer_len++] = '[';
+                    memcpy(buffer + buffer_len, word, word_len);
+                    buffer_len += word_len;
+                    buffer[buffer_len++] = ']';
+                    buffer[buffer_len] = '\0';
 
                     isDependency = true;
+                    word_len = 0;
                     word[0] = '\0';
+                }
+                else
+                {
+                    target_finished = true;
                 }
             }
         }
+
         if (!isDoubleDot)
         {
             fprintf(stderr, "Missing ':' in rule\n");
             free(word);
+            free(buffer);
             free(line);
             fclose(file);
             return 2;
         }
-        if (strlen(word) != 0 && isDoubleDot)
+
+        if (word_len != 0 && isDoubleDot)
         {
-            snprintf(buffer + strlen(buffer), sizeof(buffer) - strlen(buffer),
-                     " [%s]", word);
+            size_t needed = buffer_len + word_len + 4;
+
+            if (needed > buffer_size)
+            {
+                char *tmp = realloc(buffer, needed);
+                if (!tmp)
+                {
+                    fprintf(stderr, "Memory allocation failed\n");
+                    free(word);
+                    free(buffer);
+                    free(line);
+                    fclose(file);
+                    return 2;
+                }
+                buffer = tmp;
+                buffer_size = needed;
+            }
+
+            buffer[buffer_len++] = ' ';
+            buffer[buffer_len++] = '[';
+            memcpy(buffer + buffer_len, word, word_len);
+            buffer_len += word_len;
+            buffer[buffer_len++] = ']';
+            buffer[buffer_len] = '\0';
+
+            isDependency = true;
         }
 
         (void)isDependency;
 
-        snprintf(buffer + strlen(buffer), sizeof(buffer) - strlen(buffer),
-                 "\n");
+        if (buffer_len + 2 > buffer_size)
+        {
+            char *tmp = realloc(buffer, buffer_len + 2);
+            if (!tmp)
+            {
+                fprintf(stderr, "Memory allocation failed\n");
+                free(word);
+                free(buffer);
+                free(line);
+                fclose(file);
+                return 2;
+            }
+            buffer = tmp;
+            buffer_size = buffer_len + 2;
+        }
+
+        buffer[buffer_len++] = '\n';
+        buffer[buffer_len] = '\0';
 
         free(word);
     }
 
-    printf("%s", buffer);
+    if (ferror(file))
+    {
+        fprintf(stderr, "Error reading file\n");
+        free(buffer);
+        free(line);
+        fclose(file);
+        return 2;
+    }
 
+    if (buffer != NULL)
+        printf("%s", buffer);
+
+    free(buffer);
     free(line);
     fclose(file);
     return 0;
 }
+
