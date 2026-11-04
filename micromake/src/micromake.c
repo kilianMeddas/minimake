@@ -82,8 +82,7 @@ int main(int argc, char *argv[])
                 return 2;
             }
 
-            if (line[c] != ':' && line[c] != '\n'
-                && !isblank(line[c]))
+            if (line[c] != ':' && line[c] != '\n' && !isblank(line[c]))
             {
                 if (!isDoubleDot && target_finished)
                 {
@@ -139,8 +138,7 @@ int main(int argc, char *argv[])
                 fclose(file);
                 return 2;
             }
-            else if ((isblank(line[c]) || line[c] == '\n')
-                     && word_len != 0)
+            else if ((isblank(line[c]) || line[c] == '\n') && word_len != 0)
             {
                 if (isDoubleDot)
                 {
@@ -151,8 +149,7 @@ int main(int argc, char *argv[])
                         char *tmp = realloc(buffer, needed);
                         if (!tmp)
                         {
-                            fprintf(stderr,
-                                    "Memory allocation failed\n");
+                            fprintf(stderr, "Memory allocation failed\n");
                             free(word);
                             free(buffer);
                             free(line);
@@ -262,4 +259,3 @@ int main(int argc, char *argv[])
     fclose(file);
     return 0;
 }
-
