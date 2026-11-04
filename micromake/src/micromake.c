@@ -6,6 +6,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+struct parser
+{
+    char *word;
+    size_t word_len;
+    char *buffer;
+    size_t buffer_size;
+    size_t buffer_len;
+    bool isDoubleDot;
+    bool isDependency;
+    bool target_finished;
+};
+
 bool is_empty_line(const char *line)
 {
     for (size_t i = 0; line[i] != '\0'; i++)
@@ -16,6 +28,168 @@ bool is_empty_line(const char *line)
     return true;
 }
 
+bool resize_buffer(struct parser *p, size_t needed)
+{
+    if (needed <= p->buffer_size)
+        return true;
+
+    char *tmp = realloc(p->buffer, needed);
+    if (!tmp)
+        return false;
+
+    p->buffer = tmp;
+    p->buffer_size = needed;
+    return true;
+}
+
+bool append_target(struct parser *p)
+{
+    size_t needed = p->buffer_len + p->word_len + 4;
+    if (!resize_buffer(p, needed))
+        return false;
+
+    p->buffer[p->buffer_len++] = '(';
+    memcpy(p->buffer + p->buffer_len, p->word, p->word_len);
+    p->buffer_len += p->word_len;
+    p->buffer[p->buffer_len++] = ')';
+    p->buffer[p->buffer_len++] = ':';
+    p->buffer[p->buffer_len] = '\0';
+
+    p->isDoubleDot = true;
+    p->word_len = 0;
+    p->word[0] = '\0';
+    return true;
+}
+
+bool append_dependency(struct parser *p)
+{
+    size_t needed = p->buffer_len + p->word_len + 4;
+    if (!resize_buffer(p, needed))
+        return false;
+
+    p->buffer[p->buffer_len++] = ' ';
+    p->buffer[p->buffer_len++] = '[';
+    memcpy(p->buffer + p->buffer_len, p->word, p->word_len);
+    p->buffer_len += p->word_len;
+    p->buffer[p->buffer_len++] = ']';
+    p->buffer[p->buffer_len] = '\0';
+
+    p->isDependency = true;
+    p->word_len = 0;
+    p->word[0] = '\0';
+    return true;
+}
+
+bool handle_blank(struct parser *p)
+{
+    if (p->isDoubleDot)
+        return append_dependency(p);
+
+    p->target_finished = true;
+    return true;
+}
+bool handle_character(struct parser *p, char c)
+{
+    if (c == '=' || c == '#')
+    {
+        fprintf(stderr, "Invalid character\n");
+        return false;
+    }
+
+    if (c != ':' && c != '\n' && !isblank(c))
+    {
+        if (!p->isDoubleDot && p->target_finished)
+        {
+            fprintf(stderr, "Invalid rule name\n");
+            return false;
+        }
+        p->word[p->word_len++] = c;
+        p->word[p->word_len] = '\0';
+    }
+    else if (c == ':' && !p->isDoubleDot)
+        return append_target(p);
+    else if (c == ':' && p->isDoubleDot)
+    {
+        fprintf(stderr, "Double ':' detected\n");
+        return false;
+    }
+    else if ((isblank(c) || c == '\n') && p->word_len != 0)
+        return handle_blank(p);
+    return true;
+}
+
+bool finish_line(struct parser *p)
+{
+    if (!p->isDoubleDot)
+    {
+        fprintf(stderr, "Missing ':' in rule\n");
+        return false;
+    }
+    if (p->word_len != 0 && p->isDoubleDot)
+    {
+        if (!append_dependency(p))
+            return false;
+    }
+    if (!resize_buffer(p, p->buffer_len + 2))
+        return false;
+
+    p->buffer[p->buffer_len++] = '\n';
+    p->buffer[p->buffer_len] = '\0';
+    return true;
+}
+
+bool parse_line(struct parser *p, const char *line, ssize_t len)
+{
+    if (line[0] == '\t')
+    {
+        fprintf(stderr, "A tabulation was detected\n");
+        return false;
+    }
+    if (is_empty_line(line))
+        return true;
+
+    p->word = malloc(len + 1);
+    if (!p->word)
+        return false;
+    p->word[0] = '\0';
+    p->word_len = 0;
+    p->isDoubleDot = false;
+    p->isDependency = false;
+    p->target_finished = false;
+
+    bool valid = true;
+    for (ssize_t c = 0; c < len && valid; c++)
+        valid = handle_character(p, line[c]);
+    if (valid)
+        valid = finish_line(p);
+    free(p->word);
+    return valid;
+}
+
+int read_file(FILE *file, struct parser *p)
+{
+    char *line = NULL;
+    size_t size = 0;
+    ssize_t len;
+    int status = 0;
+
+    while ((len = getline(&line, &size, file)) != -1)
+    {
+        if (!parse_line(p, line, len))
+        {
+            status = 2;
+            break;
+        }
+    }
+    if (ferror(file))
+    {
+        fprintf(stderr, "Error reading file\n");
+        status = 2;
+    }
+    free(line);
+    return status;
+}
+
 int main(int argc, char *argv[])
 {
     if (argc != 2)
@@ -23,239 +197,17 @@ int main(int argc, char *argv[])
         fprintf(stderr, "The syntax is: ./micromake Makefile\n");
         return 2;
     }
-
     FILE *file = fopen(argv[1], "r");
     if (file == NULL)
     {
         fprintf(stderr, "Cannot open file\n");
         return 2;
     }
-
-    char *line = NULL;
-    size_t size = 0;
-    ssize_t len;
-
-    char *buffer = NULL;
-    size_t buffer_size = 0;
-    size_t buffer_len = 0;
-
-    while ((len = getline(&line, &size, file)) != -1)
-    {
-        if (line[0] == '\t')
-        {
-            fprintf(stderr, "A tabulation was detected\n");
-            free(buffer);
-            free(line);
-            fclose(file);
-            return 2;
-        }
-
-        if (is_empty_line(line))
-            continue;
-
-        char *word = malloc(size);
-        if (!word)
-        {
-            fprintf(stderr, "Memory allocation failed\n");
-            free(buffer);
-            free(line);
-            fclose(file);
-            return 2;
-        }
-
-        word[0] = '\0';
-
-        bool isDoubleDot = false;
-        bool isDependency = false;
-        bool target_finished = false;
-        size_t word_len = 0;
-
-        for (ssize_t c = 0; c < len; c++)
-        {
-            if (line[c] == '=' || line[c] == '#')
-            {
-                fprintf(stderr, "Invalid character\n");
-                free(word);
-                free(buffer);
-                free(line);
-                fclose(file);
-                return 2;
-            }
-
-            if (line[c] != ':' && line[c] != '\n' && !isblank(line[c]))
-            {
-                if (!isDoubleDot && target_finished)
-                {
-                    fprintf(stderr, "Invalid rule name\n");
-                    free(word);
-                    free(buffer);
-                    free(line);
-                    fclose(file);
-                    return 2;
-                }
-
-                word[word_len] = line[c];
-                word_len++;
-                word[word_len] = '\0';
-            }
-            else if (line[c] == ':' && !isDoubleDot)
-            {
-                size_t needed = buffer_len + word_len + 4;
-
-                if (needed > buffer_size)
-                {
-                    char *tmp = realloc(buffer, needed);
-                    if (!tmp)
-                    {
-                        fprintf(stderr, "Memory allocation failed\n");
-                        free(word);
-                        free(buffer);
-                        free(line);
-                        fclose(file);
-                        return 2;
-                    }
-                    buffer = tmp;
-                    buffer_size = needed;
-                }
-
-                buffer[buffer_len++] = '(';
-                memcpy(buffer + buffer_len, word, word_len);
-                buffer_len += word_len;
-                buffer[buffer_len++] = ')';
-                buffer[buffer_len++] = ':';
-                buffer[buffer_len] = '\0';
-
-                isDoubleDot = true;
-                word_len = 0;
-                word[0] = '\0';
-            }
-            else if (line[c] == ':' && isDoubleDot)
-            {
-                fprintf(stderr, "Double ':' detected\n");
-                free(word);
-                free(buffer);
-                free(line);
-                fclose(file);
-                return 2;
-            }
-            else if ((isblank(line[c]) || line[c] == '\n') && word_len != 0)
-            {
-                if (isDoubleDot)
-                {
-                    size_t needed = buffer_len + word_len + 4;
-
-                    if (needed > buffer_size)
-                    {
-                        char *tmp = realloc(buffer, needed);
-                        if (!tmp)
-                        {
-                            fprintf(stderr, "Memory allocation failed\n");
-                            free(word);
-                            free(buffer);
-                            free(line);
-                            fclose(file);
-                            return 2;
-                        }
-                        buffer = tmp;
-                        buffer_size = needed;
-                    }
-
-                    buffer[buffer_len++] = ' ';
-                    buffer[buffer_len++] = '[';
-                    memcpy(buffer + buffer_len, word, word_len);
-                    buffer_len += word_len;
-                    buffer[buffer_len++] = ']';
-                    buffer[buffer_len] = '\0';
-
-                    isDependency = true;
-                    word_len = 0;
-                    word[0] = '\0';
-                }
-                else
-                {
-                    target_finished = true;
-                }
-            }
-        }
-
-        if (!isDoubleDot)
-        {
-            fprintf(stderr, "Missing ':' in rule\n");
-            free(word);
-            free(buffer);
-            free(line);
-            fclose(file);
-            return 2;
-        }
-
-        if (word_len != 0 && isDoubleDot)
-        {
-            size_t needed = buffer_len + word_len + 4;
-
-            if (needed > buffer_size)
-            {
-                char *tmp = realloc(buffer, needed);
-                if (!tmp)
-                {
-                    fprintf(stderr, "Memory allocation failed\n");
-                    free(word);
-                    free(buffer);
-                    free(line);
-                    fclose(file);
-                    return 2;
-                }
-                buffer = tmp;
-                buffer_size = needed;
-            }
-
-            buffer[buffer_len++] = ' ';
-            buffer[buffer_len++] = '[';
-            memcpy(buffer + buffer_len, word, word_len);
-            buffer_len += word_len;
-            buffer[buffer_len++] = ']';
-            buffer[buffer_len] = '\0';
-
-            isDependency = true;
-        }
-
-        (void)isDependency;
-
-        if (buffer_len + 2 > buffer_size)
-        {
-            char *tmp = realloc(buffer, buffer_len + 2);
-            if (!tmp)
-            {
-                fprintf(stderr, "Memory allocation failed\n");
-                free(word);
-                free(buffer);
-                free(line);
-                fclose(file);
-                return 2;
-            }
-            buffer = tmp;
-            buffer_size = buffer_len + 2;
-        }
-
-        buffer[buffer_len++] = '\n';
-        buffer[buffer_len] = '\0';
-
-        free(word);
-    }
-
-    if (ferror(file))
-    {
-        fprintf(stderr, "Error reading file\n");
-        free(buffer);
-        free(line);
-        fclose(file);
-        return 2;
-    }
-
-    if (buffer != NULL)
-        printf("%s", buffer);
-
-    free(buffer);
-    free(line);
+    struct parser p = { 0 };
+    int status = read_file(file, &p);
+    if (status == 0 && p.buffer != NULL)
+        printf("%s", p.buffer);
+    free(p.buffer);
     fclose(file);
-    return 0;
+    return status;
 }
