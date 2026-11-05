@@ -27,7 +27,7 @@ $(TARGET):$(OBJECT)
 src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(TEST_BIN_CRITERION): $(TEST_SRC_CRITERION) $(filter-out src/main.o,$(OBJECT))
+$(TEST_BIN_CRITERION): $(TEST_SRC_CRITERION) $(filter-out src/minimake.o,$(OBJECT))
 	$(CC) $(CFLAGS) $^ -lcriterion -o $@
 
 tests/%: tests/%.c
