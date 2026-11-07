@@ -1,7 +1,8 @@
 #include <string.h>
 
 #include "include/helpers.h"
-// #include "include/pretty_print.h"
+#include "include/list.h"
+#include "include/pretty_print.h"
 
 struct options
 {
@@ -11,7 +12,7 @@ struct options
     char *file;
 };
 
-static void print_help()
+static void print_help(void)
 {
     fprintf(stdout, "Usage: ./minimake [target] [options] ...\n");
     fprintf(stdout, "Options:\n");
@@ -112,6 +113,8 @@ static int parse_arguments(int argc, char *argv[], struct options *options)
 
 static int option_chose(struct options *options)
 {
+    int statut = 0;
+    struct parser p = { 0 };
     if (options->isHelp)
     {
         print_help();
@@ -119,35 +122,34 @@ static int option_chose(struct options *options)
     }
     else if (options->isPretty && options->isFilePresent)
     {
-        fprintf(stdout, "Not implemented yet but the file is : %s",
-                options->file);
-        // pretty_print(options->file);
-
-        return 0;
+        int result = read_file(options->file, &p);
+        if (result != 0)
+        {
+            fprintf(stderr,
+                    "An error occured while collection the data from the file");
+            statut = 2;
+        }
+        else
+        {
+            pretty_print(&p);
+            statut = 0;
+        }
     }
+
     else if (options->isFilePresent)
     {
-        fprintf(stdout, "Not implemented yet but the file is : %s",
-                options->file);
-
-        // struct parser *p = {0};
-        return 0;
-        //        return read_file(options->file, p);
+        statut = read_file(options->file, &p);
     }
-
     if (!options->isFilePresent)
     {
         fprintf(stderr, "Provide a file with the -f flag\n");
-        exit(2);
+        statut = 2;
     }
 
-    if (!options->isHelp && options->isFilePresent && !options->isPretty)
-    {
-        fprintf(stderr, "Please check the -h\n");
-        exit(2);
-    }
-    fprintf(stderr, "No correct flag(s) provided");
-    exit(2);
+    variables_free(p.variables);
+    rules_free(p.rules);
+    free(p.buffer);
+    return statut;
 }
 
 int main(int argc, char *argv[])

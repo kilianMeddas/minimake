@@ -25,7 +25,7 @@ bool variable_insert(struct variable **variables, const char *name,
 
     new->name = str_duplicate(name);
     new->value = str_duplicate(value);
-
+    new->next = NULL;
     if (!new->name || !new->value)
     {
         free(new->name);
@@ -33,10 +33,19 @@ bool variable_insert(struct variable **variables, const char *name,
         free(new);
         return false;
     }
-
-    new->next = *variables;
-    *variables = new;
-
+    if (*variables == NULL)
+    {
+        *variables = new;
+    }
+    else
+    {
+        struct variable *current = *variables;
+        while (current->next != NULL)
+        {
+            current = current->next;
+        }
+        current->next = new;
+    }
     return true;
 }
 

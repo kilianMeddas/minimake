@@ -1,0 +1,12 @@
+all: main.o helper.o
+	cc -o app main.o helper.o
+	echo built app
+
+main.o: main.c
+	cc -c main.c -o main.o
+
+helper.o: helper.c
+	cc -c helper.c -o helper.o
+
+clean:
+	rm -f app main.o helper.o

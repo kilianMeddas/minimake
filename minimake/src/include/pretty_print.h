@@ -1,6 +1,8 @@
 #ifndef PRETTY_PRINT_H
 #define PRETTY_PRINT_H
 
-void pretty_print(char *file);
+#include "parser.h"
+
+void pretty_print(struct parser *p);
 
 #endif // PRETTY_PRINT_H

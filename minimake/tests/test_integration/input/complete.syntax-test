@@ -1,0 +1,11 @@
+V = app
+
+$(V): ${V}.o helper.o
+	cc -o $(V) ${V}.o helper.o
+	echo built $(V)
+
+app.o: app.c
+	cc -c app.c -o app.o
+
+helper.o: helper.c
+	cc -c helper.c -o helper.o

@@ -1,5 +1,4 @@
 #include <criterion/criterion.h>
-#include <stdlib.h>
 
 #include "../../src/include/chained_list.h"
 
@@ -13,23 +12,36 @@ Test(variable_insert, insert)
     cr_assert_str_eq(variables->value, "GCC");
     cr_assert_null(variables->next);
 
-    free(variables->name);
-    free(variables->value);
-    free(variables);
+    variables_free(variables);
 }
 
 Test(variable_insert, one_of_the_three_NULL)
 {
-    bool result = variable_insert(NULL, "CC", "GCC");
-    cr_assert_not(result);
+    cr_assert_not(variable_insert(NULL, "CC", "GCC"));
 
     struct variable *variables = NULL;
-    bool result1 = variable_insert(&variables, NULL, "GCC");
-    cr_assert_not(result1);
 
-    bool result2 = variable_insert(&variables, "CC", NULL);
-    cr_assert_not(result2);
-    free(variables);
+    cr_assert_not(variable_insert(&variables, NULL, "GCC"));
+    cr_assert_not(variable_insert(&variables, "CC", NULL));
+    cr_assert_null(variables);
+
+    variables_free(variables);
+}
+
+Test(variable_insert, insertion_order)
+{
+    struct variable *variables = NULL;
+
+    cr_assert(variable_insert(&variables, "CC", "GCC"));
+    cr_assert(variable_insert(&variables, "CFLAGS", "-std=c99"));
+    cr_assert(variable_insert(&variables, "DEBUG", "-g"));
+
+    cr_assert_str_eq(variables->name, "CC");
+    cr_assert_str_eq(variables->next->name, "CFLAGS");
+    cr_assert_str_eq(variables->next->next->name, "DEBUG");
+    cr_assert_null(variables->next->next->next);
+
+    variables_free(variables);
 }
 
 Test(variable_set, set_value)
@@ -42,23 +54,62 @@ Test(variable_set, set_value)
     cr_assert_str_eq(variables->value, "GCC");
     cr_assert_null(variables->next);
 
-    free(variables->name);
-    free(variables->value);
-    free(variables);
+    variables_free(variables);
+}
+
+Test(variable_set, set_two_value)
+{
+    struct variable *variables = NULL;
+
+    cr_assert(variable_set(&variables, "CC", "GCC"));
+    cr_assert(variable_set(&variables, "CFLAGS", "-std=c99"));
+
+    cr_assert_str_eq(variables->name, "CC");
+    cr_assert_str_eq(variables->value, "GCC");
+    cr_assert_not_null(variables->next);
+
+    struct variable *next_variable = variables->next;
+
+    cr_assert_str_eq(next_variable->name, "CFLAGS");
+    cr_assert_str_eq(next_variable->value, "-std=c99");
+    cr_assert_null(next_variable->next);
+
+    variables_free(variables);
+}
+
+Test(variable_set, update_preserves_order)
+{
+    struct variable *variables = NULL;
+
+    cr_assert(variable_set(&variables, "CC", "GCC"));
+    cr_assert(variable_set(&variables, "CFLAGS", "-Wall"));
+    cr_assert(variable_set(&variables, "CC", "CLANG"));
+
+    cr_assert_str_eq(variables->name, "CC");
+    cr_assert_str_eq(variables->value, "CLANG");
+    cr_assert_str_eq(variables->next->name, "CFLAGS");
+    cr_assert_null(variables->next->next);
+
+    variables_free(variables);
 }
 
 Test(variable_get, empty_list)
 {
     struct variable *variables = NULL;
+
     const char *result = variable_get(variables, "CC");
+
     cr_assert_null(result);
 }
 
 Test(variable_get, one_element)
 {
     struct variable *variables = NULL;
+
     cr_assert(variable_set(&variables, "CC", "GCC"));
+
     const char *result = variable_get(variables, "CC");
+
     cr_assert_not_null(result);
     cr_assert_str_eq(result, "GCC");
 
@@ -70,8 +121,11 @@ Test(variable_get, one_element_not_found)
     struct variable *variables = NULL;
 
     cr_assert(variable_set(&variables, "CC", "GCC"));
+
     const char *result = variable_get(variables, "CFLAGS");
+
     cr_assert_null(result);
+
     variables_free(variables);
 }
 
@@ -149,6 +203,7 @@ Test(variable_get, empty_name)
 Test(variables_free, empty_list)
 {
     struct variable *variables = NULL;
+
     variables_free(variables);
 }
 
@@ -200,49 +255,14 @@ Test(variables_free, many_elements)
     variables_free(variables);
 }
 
-Test(variable_set, set_two_value)
-{
-    struct variable *variables = NULL;
-    bool result = variable_set(&variables, "CC", "GCC");
-
-    cr_assert(result);
-    cr_assert_str_eq(variables->name, "CC");
-    cr_assert_str_eq(variables->value, "GCC");
-    cr_assert_null(variables->next);
-
-    bool result2 = variable_set(&variables, "CFLAGS", "-std=c99");
-    cr_assert(result2);
-    cr_assert_str_eq(variables->name, "CFLAGS");
-    cr_assert_str_eq(variables->value, "-std=c99");
-    cr_assert_not_null(variables->next);
-
-    struct variable *next_variable = variables->next;
-    cr_assert_not_null(next_variable);
-
-    cr_assert_str_eq(next_variable->name, "CC");
-    cr_assert_str_eq(next_variable->value, "GCC");
-    cr_assert_null(next_variable->next);
-
-    free(next_variable->name);
-    free(next_variable->value);
-    free(next_variable);
-
-    free(variables->name);
-    free(variables->value);
-    free(variables);
-}
-
 Test(get, get_value)
 {
     struct variable *variables = NULL;
-    bool result = variable_insert(&variables, "CC", "GCC");
 
-    cr_assert(result);
+    cr_assert(variable_insert(&variables, "CC", "GCC"));
     cr_assert_str_eq(variables->name, "CC");
     cr_assert_str_eq(variables->value, "GCC");
     cr_assert_null(variables->next);
 
-    free(variables->name);
-    free(variables->value);
-    free(variables);
+    variables_free(variables);
 }

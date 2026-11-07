@@ -12,11 +12,10 @@ static bool character(struct parser *p, char c)
 {
     if (c == '#')
     {
-        fprintf(stderr, "Invalid character\n");
-        return false;
+        return true;
     }
 
-    if (c != ':' && c != '\n' && !isblank(c) && c != '=')
+    if (c != ':' && c != '\n' && !isblank(c))
     {
         if (!p->isDoubleDot && p->target_finished)
         {
@@ -35,22 +34,35 @@ static bool character(struct parser *p, char c)
     }
     else if ((isblank(c) || c == '\n') && p->word_len != 0)
         return blank(p);
-    // else if (c == '=')
-    //  {
-    //     return append_variables(p);
-    //  }
+
     return true;
 }
 
 static bool parse_line(struct parser *p, const char *line, ssize_t len)
 {
-    if (line[0] == '\t')
+    if (line[0] == '#')
+        return true;
+
+    if (line[0] == '\t' && p->current_rule == NULL)
     {
-        fprintf(stderr, "A tabulation was detected\n");
+        fprintf(stderr, "A tabulation was detected without rule before\n");
         return false;
+    }
+    else if (line[0] == '\t' && p->current_rule != NULL)
+    {
+        return append_command(p, line);
     }
     if (empty_line(line))
         return true;
+
+    char *equal = strchr(line, '=');
+    char *colon = strchr(line, ':');
+
+    if (equal && (!colon || equal < colon))
+    {
+        p->current_rule = NULL;
+        return append_variables(p, line);
+    }
 
     p->word = malloc(len + 1);
     if (!p->word)
@@ -63,9 +75,16 @@ static bool parse_line(struct parser *p, const char *line, ssize_t len)
 
     bool valid = true;
     for (ssize_t c = 0; c < len && valid; c++)
+    {
+        if (line[c] == '#')
+        {
+            break;
+        }
         valid = character(p, line[c]);
+    }
     if (valid)
         valid = finish_line(p);
+    p->isCommand = false;
     free(p->word);
     return valid;
 }
