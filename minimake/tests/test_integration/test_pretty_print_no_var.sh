@@ -8,5 +8,6 @@ if diff -u tests/script_results/no_variables.output tests/test_integration/expec
 	echo "PASS: Pretty-print no variables"
 else
 	echo "FAIL: Pretty-print no variables"
+	exit 1
 fi
 

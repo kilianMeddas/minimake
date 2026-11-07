@@ -10,4 +10,5 @@ if [ "$status" -eq 2 ] && [ -s tests/script_results/missing_file.error ]; then
     echo "PASS: Missing file option"
 else
     echo "FAIL: Missing file option"
+	exit 1
 fi

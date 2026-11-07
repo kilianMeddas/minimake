@@ -10,4 +10,5 @@ if [ "$status" -eq 2 ] && [ -s tests/script_results/unknown_option.error ]; then
     echo "PASS: Unknown option"
 else
     echo "FAIL: Unknown option"
+	exit 1
 fi

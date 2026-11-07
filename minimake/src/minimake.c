@@ -1,7 +1,9 @@
 #include <string.h>
 
+#include "include/execute.h"
 #include "include/helpers.h"
 #include "include/list.h"
+#include "include/parser.h"
 #include "include/pretty_print.h"
 
 struct options
@@ -10,22 +12,8 @@ struct options
     bool isFilePresent;
     bool isHelp;
     char *file;
+    struct list *targets;
 };
-
-static void print_help(void)
-{
-    fprintf(stdout, "Usage: ./minimake [target] [options] ...\n");
-    fprintf(stdout, "Options:\n");
-    fprintf(stdout,
-            "-f file, --file=file, --makefile=file      Name of the Makefile "
-            "to use (Mandatory)\n");
-    fprintf(stdout,
-            "-h, --help                                 Print this message and "
-            "exit.\n");
-    fprintf(stdout,
-            "-p, --print-data-base --pretty-print       Print make's internal "
-            "database.\n");
-}
 
 static int file_argument(int argc, char *argv[], int *i,
                          struct options *options)
@@ -42,7 +30,7 @@ static int file_argument(int argc, char *argv[], int *i,
         fprintf(stderr,
                 "Please provide a file (./Minimakefile -h for more "
                 "informations)\n");
-        exit(2);
+        return 2;
     }
     else if (strstr(argv[*i], "--file=") != NULL
              || strstr(argv[*i], "--makefile=") != NULL)
@@ -55,7 +43,7 @@ static int file_argument(int argc, char *argv[], int *i,
                     "An error occured while collection the name of the file in "
                     ": %s\n",
                     argv[*i]);
-            exit(2);
+            return 2;
         }
     }
     return 0;
@@ -78,7 +66,7 @@ static int argument(int argc, char *argv[], int *i, struct options *options)
         fprintf(stderr,
                 "Please provide a file (./Minimakefile -h for more "
                 "informations)\n");
-        exit(2);
+        return 2;
     }
     else if (strcmp("-p", argv[*i]) == 0
              || strcmp("--print-data-base", argv[*i]) == 0
@@ -90,66 +78,132 @@ static int argument(int argc, char *argv[], int *i, struct options *options)
     {
         fprintf(stderr,
                 "minimake: *** empty string invalid as argument. Stop.\n");
-        exit(2);
+        return 2;
     }
+    else if (argv[*i][0] == '-')
+    {
+        fprintf(stderr, "Available option: %s\n", argv[*i]);
+        return 2;
+    }
+
     else
     {
-        fprintf(stderr, "Invalid argument: %s\n", argv[*i]);
-        exit(2);
+        if (list_insert(&options->targets, argv[*i]) == false)
+            return 2;
     }
     return 0;
 }
 
-static int parse_arguments(int argc, char *argv[], struct options *options)
+int parse_arguments(int argc, char *argv[], struct options *options)
 {
     for (int i = 1; i < argc; i++)
     {
         int status = argument(argc, argv, &i, options);
         if (status != 0)
-            exit(2);
+            return 2;
     }
     return 0;
 }
 
+static int select_targets(struct parser *p, struct options *options)
+{
+    if (!p || !options)
+        return 2;
+
+    struct list *current = options->targets;
+
+    if (options->targets == NULL)
+    {
+        struct rule *rule = first_standard_rule(p->rules);
+
+        if (!rule)
+        {
+            fprintf(stderr, "minimake: *** No targets. Stop.\n");
+            return 2;
+        }
+
+        return execute_rule(p, rule);
+    }
+
+    while (current != NULL)
+    {
+        struct rule *rule = rule_get(p->rules, current->target);
+        if (!rule)
+        {
+            fprintf(stderr,
+                    "minimake: *** No rule to make target '%s'. Stop.\n",
+                    current->target);
+            return 2;
+        }
+
+        int result = execute_rule(p, rule);
+        if (result != 0)
+            return 2;
+
+        current = current->next;
+    }
+    return 0;
+}
+
+static void parser_free(struct parser *p)
+{
+    variables_free(p->variables);
+    rules_free(p->rules);
+    free(p->buffer);
+}
+
+static void print_help(void)
+{
+    fprintf(stdout, "Usage: ./minimake [target] [options] ...\n");
+    fprintf(stdout, "Options:\n");
+    fprintf(stdout,
+            "-f file, --file=file, --makefile=file      Name of the Makefile "
+            "to use (Mandatory)\n");
+    fprintf(stdout,
+            "-h, --help                                 Print this message and "
+            "exit.\n");
+    fprintf(stdout,
+            "-p, --print-data-base --pretty-print       Print make's internal "
+            "database.\n");
+}
+
 static int option_chose(struct options *options)
 {
-    int statut = 0;
+    int status = 0;
     struct parser p = { 0 };
+
     if (options->isHelp)
     {
         print_help();
         return 0;
     }
-    else if (options->isPretty && options->isFilePresent)
+    if (!options->file)
     {
-        int result = read_file(options->file, &p);
-        if (result != 0)
-        {
-            fprintf(stderr,
-                    "An error occured while collection the data from the file");
-            statut = 2;
-        }
-        else
-        {
-            pretty_print(&p);
-            statut = 0;
-        }
+        fprintf(stderr, "No file found");
+        parser_free(&p);
+        return 2;
+    }
+    int result = read_file(options->file, &p);
+    if (result != 0)
+    {
+        fprintf(stderr,
+                "An error occured while collecting the data from the file");
+        parser_free(&p);
+        return 2;
+    }
+    if (options->isPretty && options->isFilePresent)
+    {
+        pretty_print(&p);
+        status = 0;
     }
 
     else if (options->isFilePresent)
     {
-        statut = read_file(options->file, &p);
-    }
-    if (!options->isFilePresent)
-    {
-        fprintf(stderr, "Provide a file with the -f flag\n");
-        statut = 2;
+        status = select_targets(&p, options);
     }
 
-    variables_free(p.variables);
-    rules_free(p.rules);
-    free(p.buffer);
-    return statut;
+    parser_free(&p);
+    return status;
 }
 
 int main(int argc, char *argv[])
@@ -165,10 +219,16 @@ int main(int argc, char *argv[])
     options.isFilePresent = false;
     options.isHelp = false;
     options.file = NULL;
+    options.targets = NULL;
 
     int status = parse_arguments(argc, argv, &options);
     if (status != 0)
+    {
+        list_free(options.targets);
         return status;
+    }
+    int result = option_chose(&options);
+    list_free(options.targets);
 
-    return option_chose(&options);
+    return result;
 }

@@ -2,6 +2,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 static char *str_duplicate(const char *str)
 {
@@ -51,9 +53,9 @@ bool rule_insert(struct parser *p, const char *target)
     return true;
 }
 
-static bool list_insert(struct list **head, const char *value)
+bool list_insert(struct list **target, const char *value)
 {
-    if (!head || !value)
+    if (!target || !value)
         return false;
 
     struct list *new = malloc(sizeof(struct list));
@@ -69,13 +71,13 @@ static bool list_insert(struct list **head, const char *value)
 
     new->next = NULL;
 
-    if (!*head)
+    if (!*target)
     {
-        *head = new;
+        *target = new;
         return true;
     }
 
-    struct list *current = *head;
+    struct list *current = *target;
 
     while (current->next)
         current = current->next;
@@ -131,4 +133,38 @@ void rules_free(struct rule *rules)
 
         current = next;
     }
+}
+
+struct rule *rule_get(struct rule *rules, const char *target)
+{
+    if (!rules || !target)
+        return NULL;
+
+    struct rule *current = rules;
+
+    while (current)
+    {
+        if (strcmp(current->target, target) == 0)
+            return current;
+
+        current = current->next;
+    }
+    return NULL;
+}
+
+struct rule *first_standard_rule(struct rule *rules)
+{
+    if (!rules)
+        return NULL;
+
+    struct rule *current = rules;
+    while (current)
+    {
+        if (strchr(current->target, '%') == NULL)
+            return current;
+
+        current = current->next;
+    }
+
+    return NULL;
 }

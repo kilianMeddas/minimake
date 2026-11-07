@@ -47,6 +47,8 @@ check: $(TEST_BIN_CRITERION) minimake
 	./tests/test_integration/test_error_nonexistent_file.sh
 	./tests/test_integration/test_error_option.sh
 	./tests/test_integration/test_error_empty.sh
+	./tests/test_integration/test_execute_no_dep.sh
+	./tests/test_integration/test_execute_no_rule.sh
 	
 check-asan:
 	$(CC) $(CFLAGS) -fsanitize=address -g -fno-omit-frame-pointer $(TEST_SRC_CRITERION) $(filter-out src/minimake.c,$(SRC)) -lcriterion -o $(TEST_BIN_CRITERION)_asan

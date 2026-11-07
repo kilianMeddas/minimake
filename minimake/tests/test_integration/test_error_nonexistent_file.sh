@@ -10,5 +10,5 @@ if [ "$status" -eq 2 ] && [ -s tests/script_results/nonexistent_file.error ]; th
     echo "PASS: Nonexistent file"
 else
     echo "FAIL: Nonexistent file"
-
+	exit 1
 fi

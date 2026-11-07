@@ -1,0 +1,7 @@
+VAR="MAISON"
+
+all:
+	echo "Hello"
+	echo "World"
+	@echo "Hello world muet"
+	echo The var is ${VAR}

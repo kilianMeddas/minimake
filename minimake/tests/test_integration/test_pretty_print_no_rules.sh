@@ -8,5 +8,6 @@ if diff -u tests/script_results/no_rules.output tests/test_integration/expected/
 	echo "PASS: Pretty-print no rule"
 else
 	echo "FAIL: Pretty-print no rule"
+	exit 1
 fi
 

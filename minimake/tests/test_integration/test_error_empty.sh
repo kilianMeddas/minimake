@@ -9,5 +9,6 @@ status=$?
 if [ "$status" -eq 2 ] && [ -s tests/script_results/empty_argument.error ]; then
     echo "PASS: Empty argument"
 else
-    echo "FAIL: Empty argument" 
+    echo "FAIL: Empty argument"
+	exit 1
 fi

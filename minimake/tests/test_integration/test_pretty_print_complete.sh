@@ -8,4 +8,5 @@ if diff -u tests/script_results/complete.output tests/test_integration/expected/
     echo "PASS: Pretty-print complete"
 else
     echo "FAIL: Pretty-print complete"
+	exit 1
 fi
