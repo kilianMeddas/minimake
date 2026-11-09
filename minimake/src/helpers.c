@@ -6,6 +6,13 @@
 #include "include/append.h"
 #include "include/resize.h"
 
+struct expansion_buffer
+{
+    char *data;
+    size_t length;
+    size_t capacity;
+};
+
 char *str_duplicate(const char *str)
 {
     char *copy = malloc(strlen(str) + 1);
@@ -28,7 +35,7 @@ bool empty_line(const char *line)
 
 bool blank(struct parser *p)
 {
-    if (p->isDoubleDot)
+    if (p->is_double_dot)
         return append_dependency(p);
 
     p->target_finished = true;
@@ -37,12 +44,12 @@ bool blank(struct parser *p)
 
 bool finish_line(struct parser *p)
 {
-    if (!p->isDoubleDot)
+    if (!p->is_double_dot)
     {
         fprintf(stderr, "Missing ':' in rule\n");
         return false;
     }
-    if (p->word_len != 0 && p->isDoubleDot)
+    if (p->word_len != 0 && p->is_double_dot)
     {
         if (!append_dependency(p))
             return false;
@@ -72,25 +79,25 @@ char *extract_file(char *arg)
     return arg;
 }
 
-static bool append_text(char **result, size_t *len, size_t *capacity,
-                        const char *text, size_t count)
+static bool append_text(struct expansion_buffer *result, const char *text,
+                        size_t count)
 {
-    size_t n = *len + count + 1;
+    size_t n = result->length + count + 1;
 
-    if (n > *capacity)
+    if (n > result->capacity)
     {
         size_t new_capacity = n * 2;
-        char *new_result = realloc(*result, new_capacity);
+        char *new_result = realloc(result->data, new_capacity);
         if (!new_result)
             return false;
 
-        *result = new_result;
-        *capacity = new_capacity;
+        result->data = new_result;
+        result->capacity = new_capacity;
     }
 
-    memcpy(*result + *len, text, count);
-    *len += count;
-    (*result)[*len] = '\0';
+    memcpy(result->data + result->length, text, count);
+    result->length += count;
+    result->data[result->length] = '\0';
 
     return true;
 }
@@ -127,8 +134,8 @@ static char *extract_variable_name(const char **c)
     return name;
 }
 
-static bool expand_reference(char **result, size_t *len, size_t *capacity,
-                             const char **c, const struct variable *variables)
+static bool expand_reference(struct expansion_buffer *result, const char **c,
+                             const struct variable *variables)
 {
     char *name = extract_variable_name(c);
     if (!name)
@@ -140,7 +147,7 @@ static bool expand_reference(char **result, size_t *len, size_t *capacity,
     if (!value)
         value = "";
 
-    return append_text(result, len, capacity, value, strlen(value));
+    return append_text(result, value, strlen(value));
 }
 
 char *expand_variables(const char *input, const struct variable *variables)
@@ -148,13 +155,11 @@ char *expand_variables(const char *input, const struct variable *variables)
     if (!input)
         return NULL;
 
-    size_t len = 0;
-    size_t capacity = 1;
-    char *result = malloc(capacity);
-    if (!result)
+    struct expansion_buffer result = { malloc(1), 0, 1 };
+    if (!result.data)
         return NULL;
 
-    result[0] = '\0';
+    result.data[0] = '\0';
     const char *c = input;
 
     while (*c)
@@ -163,25 +168,25 @@ char *expand_variables(const char *input, const struct variable *variables)
 
         if (*c == '$' && c[1] == '$')
         {
-            success = append_text(&result, &len, &capacity, "$", 1);
+            success = append_text(&result, "$", 1);
             c += 2;
         }
         else if (*c == '$' && c[1] != '\0')
         {
-            success = expand_reference(&result, &len, &capacity, &c, variables);
+            success = expand_reference(&result, &c, variables);
         }
         else
         {
-            success = append_text(&result, &len, &capacity, c, 1);
+            success = append_text(&result, c, 1);
             c++;
         }
 
         if (!success)
         {
-            free(result);
+            free(result.data);
             return NULL;
         }
     }
 
-    return result;
+    return result.data;
 }

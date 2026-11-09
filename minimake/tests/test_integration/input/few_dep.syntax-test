@@ -1,0 +1,8 @@
+all: first second
+	@echo all
+
+first:
+	@echo first
+
+second:
+	@echo second

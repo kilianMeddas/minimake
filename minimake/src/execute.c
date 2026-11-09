@@ -3,10 +3,13 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "include/append.h"
+#include "include/list.h"
+#include "include/parser.h"
 
 int execute_rule(struct parser *p, struct rule *rule)
 {
@@ -70,5 +73,69 @@ int execute_rule(struct parser *p, struct rule *rule)
         cmd = cmd->next;
     }
 
+    return 0;
+}
+
+int build_rule(struct parser *p, struct rule *rule, bool *changed)
+{
+    if (!p || !rule)
+        return 2;
+
+    struct stat target_info;
+    bool target_exists = stat(rule->target, &target_info) == 0;
+    bool needs_build = !target_exists;
+
+    for (struct list *dep = rule->dependencies; !rule->is_done && dep;
+         dep = dep->next)
+    {
+        struct rule *dependency = rule_get(p->rules, dep->target);
+        bool child_changed = false;
+
+        if (dependency)
+        {
+            if (build_rule(p, dependency, &child_changed) != 0)
+                return 2;
+        }
+
+        struct stat dependency_info;
+        bool dependency_exists = stat(dep->target, &dependency_info) == 0;
+
+        if (!dependency && !dependency_exists)
+        {
+            fprintf(stderr,
+                    "minimake: *** No rule to make target '%s', "
+                    "needed by '%s'. Stop.\n",
+                    dep->target, rule->target);
+            return 2;
+        }
+
+        if (child_changed)
+        {
+            rule->was_changed = true;
+            needs_build = true;
+        }
+
+        if (target_exists && dependency_exists
+            && dependency_info.st_mtime > target_info.st_mtime)
+            needs_build = true;
+    }
+
+    bool rebuilt = !rule->is_done && needs_build && rule->commands;
+    if (rebuilt && execute_rule(p, rule) != 0)
+        return 2;
+
+    rule->was_changed = rebuilt || rule->was_changed;
+
+    if (changed)
+        *changed = rule->was_changed;
+    else if (rule->is_done || !rule->was_changed)
+    {
+        if (!rule->commands)
+            printf("minimake: Nothing to be done for '%s'.\n", rule->target);
+        else
+            printf("minimake: '%s' is up to date.\n", rule->target);
+    }
+
+    rule->is_done = true;
     return 0;
 }

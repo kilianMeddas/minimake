@@ -1,0 +1,4 @@
+all: missing_dependency_file
+	@echo SHOULD_NOT_RUN
+
+

@@ -1,0 +1,5 @@
+all: child
+	@echo all
+
+child:
+	@echo child

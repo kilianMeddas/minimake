@@ -1,4 +1,3 @@
-
 #include "include/append.h"
 
 #include <ctype.h>
@@ -9,7 +8,7 @@
 #include "include/list.h"
 #include "include/resize.h"
 
-void remove_spaces(char *str)
+static void remove_spaces(char *str)
 {
     if (str == NULL)
         return;
@@ -67,7 +66,7 @@ bool append_target(struct parser *p)
     if (len == 0)
     {
         p->current_rule = NULL;
-        p->isDoubleDot = true;
+        p->is_double_dot = true;
         p->word_len = 0;
         p->word[0] = '\0';
         free(expanded);
@@ -79,7 +78,7 @@ bool append_target(struct parser *p)
     if (!result)
         return false;
 
-    p->isDoubleDot = true;
+    p->is_double_dot = true;
     p->word_len = 0;
     p->word[0] = '\0';
 
@@ -136,7 +135,7 @@ bool append_dependency(struct parser *p)
     }
 
     free(expanded);
-    p->isDependency = true;
+    p->is_dependency = true;
     p->word_len = 0;
     p->word[0] = '\0';
 

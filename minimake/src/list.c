@@ -34,7 +34,8 @@ bool rule_insert(struct parser *p, const char *target)
     new->dependencies = NULL;
     new->commands = NULL;
     new->next = NULL;
-
+    new->is_done = false;
+    new->was_changed = false;
     if (!p->rules)
     {
         p->rules = new;

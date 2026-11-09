@@ -8,5 +8,6 @@ if diff -u tests/script_results/no_dependencies.output tests/test_integration/ex
     echo "PASS: Execute without dependencies"
 else
     echo "FAIL: Execute without dependencies"
+	exit 1
 fi
 

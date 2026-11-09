@@ -17,7 +17,7 @@ static bool character(struct parser *p, char c)
 
     if (c != ':' && c != '\n' && !isblank(c))
     {
-        if (!p->isDoubleDot && p->target_finished)
+        if (!p->is_double_dot && p->target_finished)
         {
             fprintf(stderr, "Invalid rule name\n");
             return false;
@@ -25,9 +25,9 @@ static bool character(struct parser *p, char c)
         p->word[p->word_len++] = c;
         p->word[p->word_len] = '\0';
     }
-    else if (c == ':' && !p->isDoubleDot)
+    else if (c == ':' && !p->is_double_dot)
         return append_target(p);
-    else if (c == ':' && p->isDoubleDot)
+    else if (c == ':' && p->is_double_dot)
     {
         fprintf(stderr, "Double ':' detected\n");
         return false;
@@ -69,8 +69,8 @@ static bool parse_line(struct parser *p, const char *line, ssize_t len)
         return false;
     p->word[0] = '\0';
     p->word_len = 0;
-    p->isDoubleDot = false;
-    p->isDependency = false;
+    p->is_double_dot = false;
+    p->is_dependency = false;
     p->target_finished = false;
 
     bool valid = true;
@@ -84,7 +84,7 @@ static bool parse_line(struct parser *p, const char *line, ssize_t len)
     }
     if (valid)
         valid = finish_line(p);
-    p->isCommand = false;
+    p->is_command = false;
     free(p->word);
     return valid;
 }

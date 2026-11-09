@@ -49,7 +49,11 @@ check: $(TEST_BIN_CRITERION) minimake
 	./tests/test_integration/test_error_empty.sh
 	./tests/test_integration/test_execute_no_dep.sh
 	./tests/test_integration/test_execute_no_rule.sh
-	
+	./tests/test_integration/test_error_missing_dependency.sh
+	./tests/test_integration/test_execute_few_dep.sh
+	./tests/test_integration/test_execute_one_dep.sh
+	./tests/test_integration/test_error_missing_rule.sh
+
 check-asan:
 	$(CC) $(CFLAGS) -fsanitize=address -g -fno-omit-frame-pointer $(TEST_SRC_CRITERION) $(filter-out src/minimake.c,$(SRC)) -lcriterion -o $(TEST_BIN_CRITERION)_asan
 	ASAN_OPTIONS=detect_leaks=1 ./$(TEST_BIN_CRITERION)_asan

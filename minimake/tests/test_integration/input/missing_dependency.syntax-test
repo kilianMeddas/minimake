@@ -1,0 +1,2 @@
+all: tests/test_integration/input/missing_dependency_file.does-not-exist
+	@echo SHOULD_NOT_RUN

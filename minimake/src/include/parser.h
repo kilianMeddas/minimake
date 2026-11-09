@@ -15,9 +15,9 @@ struct parser
     size_t buffer_size;
     size_t buffer_len;
 
-    bool isDoubleDot;
-    bool isDependency;
-    bool isCommand;
+    bool is_double_dot;
+    bool is_dependency;
+    bool is_command;
     bool target_finished;
 
     struct variable *variables;
@@ -36,6 +36,8 @@ struct rule
     char *target;
     struct list *dependencies;
     struct list *commands;
+    bool is_done;
+    bool was_changed;
     struct rule *next;
 };
 
