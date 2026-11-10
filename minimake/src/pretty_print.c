@@ -5,22 +5,16 @@
 void pretty_print(struct parser *p)
 {
     struct variable *current_variable = p->variables;
-    if (current_variable)
+    fprintf(stdout, "# variables\n");
+    while (current_variable != NULL)
     {
-        fprintf(stdout, "# variables\n");
-        while (current_variable->next != NULL)
-        {
-            fprintf(stdout, "'%s' = '%s'\n", current_variable->name,
-                    current_variable->value);
-            current_variable = current_variable->next;
-        }
         fprintf(stdout, "'%s' = '%s'\n", current_variable->name,
                 current_variable->value);
+        current_variable = current_variable->next;
     }
 
     struct rule *current_rule = p->rules;
-    if (current_rule)
-        fprintf(stdout, "# rules\n");
+    fprintf(stdout, "# rules\n");
 
     while (current_rule != NULL)
     {

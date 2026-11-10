@@ -1,3 +1,4 @@
+# variables
 # rules
 (all): [main.o] [helper.o]
 	'cc -o app main.o helper.o'
