@@ -116,18 +116,20 @@ make clean
 
 A Makefile must be selected explicitly with `-f`, `--file=`, or `--makefile=`. If no target is provided, Minimake builds the first non-pattern rule.
 
+The repository's integration inputs use the `.syntax-test` extension. These files contain Makefile syntax and can be passed directly to `-f`.
+
 ```sh
-# Build the default target
-./minimake -f Example.mk
+# Build the default target from an existing test input
+./minimake -f tests/test_integration/input/one_dep.syntax-test
 
 # Build a specific target
-./minimake -f Example.mk hello
+./minimake -f tests/test_integration/input/one_dep.syntax-test child
 
 # Build several targets in the given order
-./minimake -f Example.mk hello goodbye
+./minimake -f tests/test_integration/input/few_dep.syntax-test first second
 
 # Display parsed variables and rules without executing recipes
-./minimake -p -f Example.mk
+./minimake -p -f tests/test_integration/input/complete.syntax-test
 
 # Display help
 ./minimake --help
@@ -146,34 +148,30 @@ If several file options are provided, the last one is used.
 
 ### Example
 
-Save the following as `Example.mk`. Recipe lines must begin with a real tab character.
+The existing file `tests/test_integration/input/one_dep.syntax-test` contains:
 
 ```makefile
-NAME = world
+all: child
+	@echo all
 
-all: hello goodbye
-
-hello:
-	@echo "Hello, $(NAME)!"
-
-goodbye:
-	@echo "Goodbye, ${NAME}!"
+child:
+	@echo child
 ```
 
-Run:
+Recipe lines begin with a real tab character. Run:
 
 ```sh
-./minimake -f Example.mk
+./minimake -f tests/test_integration/input/one_dep.syntax-test all
 ```
 
 Output:
 
 ```text
-Hello, world!
-Goodbye, world!
+child
+all
 ```
 
-Remove the leading `@` from a recipe command to print the expanded command before its output.
+Minimake builds `child` before `all`. The leading `@` suppresses command logging.
 
 ### Exit status
 
@@ -201,6 +199,22 @@ make check-asan
 ```
 
 The test suite covers variable storage and expansion, rule and list management, pretty-printing, argument errors, and dependency execution.
+
+| Files | Purpose |
+| --- | --- |
+| `tests/test_unit/*.c` | Criterion unit tests. |
+| `tests/test_integration/test_*.sh` | Shell scripts that run Minimake and check its results. |
+| `tests/test_integration/input/*.syntax-test` | Makefile inputs used by integration tests. |
+| `tests/test_integration/expected/*.expected` | Expected output compared with the actual results. |
+| `tests/test_date/Makefile` | Separate timestamp-based build example. |
+
+Run an individual integration test from the project directory:
+
+```sh
+./tests/test_integration/test_execute_one_dep.sh
+```
+
+The `complete.syntax-test` input is suitable for pretty-printing; executing its recipes also requires `app.c` and `helper.c`, which are not included in the repository.
 
 Format the source files and tests:
 
